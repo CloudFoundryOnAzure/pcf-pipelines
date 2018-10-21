@@ -18,12 +18,41 @@ set -eu
 
 echo "Applying changes on Ops Manager @ ${OPSMAN_DOMAIN_OR_IP_ADDRESS}"
 
-om-linux \
+wget https://github.com/pivotal-cf/om/releases/download/0.42.0/om-linux
+chmod +x om-linux
+mv om-linux /usr/local/bin/om-linux
+
+pcf_version=$(om-linux \
   --target "https://${OPSMAN_DOMAIN_OR_IP_ADDRESS}" \
   --skip-ssl-validation \
   --client-id "${OPSMAN_CLIENT_ID}" \
   --client-secret "${OPSMAN_CLIENT_SECRET}" \
   --username "${OPSMAN_USERNAME}" \
   --password "${OPSMAN_PASSWORD}" \
-  apply-changes \
-  --ignore-warnings
+  deployed-products \
+  -f json \
+  | jq -r '.[] | select(.name == "cf") | .version')
+
+required_version="2.2"
+if [ "$(printf '%s\n' "$required_version" "$pcf_version" | sort -V | head -n1)" = "$required_version" ]; then
+  om-linux \
+    --target "https://${OPSMAN_DOMAIN_OR_IP_ADDRESS}" \
+    --skip-ssl-validation \
+    --client-id "${OPSMAN_CLIENT_ID}" \
+    --client-secret "${OPSMAN_CLIENT_SECRET}" \
+    --username "${OPSMAN_USERNAME}" \
+    --password "${OPSMAN_PASSWORD}" \
+    apply-changes \
+    --product-name ${PRODUCT_NAME} \
+    --ignore-warnings
+else
+  om-linux \
+    --target "https://${OPSMAN_DOMAIN_OR_IP_ADDRESS}" \
+    --skip-ssl-validation \
+    --client-id "${OPSMAN_CLIENT_ID}" \
+    --client-secret "${OPSMAN_CLIENT_SECRET}" \
+    --username "${OPSMAN_USERNAME}" \
+    --password "${OPSMAN_PASSWORD}" \
+    apply-changes \
+    --ignore-warnings
+fi
